@@ -2,14 +2,16 @@
 
 let input =
     File.ReadAllText(Path.Join(__SOURCE_DIRECTORY__, "input.txt"))
+
 let rec findMarkerPos (maybeMarkerPos: int) (charLength: int) : int =
-    let maybeMarker = input.Substring(maybeMarkerPos - charLength, charLength)
-    
+    let maybeMarker =
+        input.Substring(maybeMarkerPos - charLength, charLength)
+
     let uniqueCharLength =
         maybeMarker.ToCharArray()
         |> Array.distinct
         |> Array.length
-    
+
     if uniqueCharLength = charLength then
         maybeMarkerPos
     else

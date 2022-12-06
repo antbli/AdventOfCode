@@ -12,22 +12,27 @@ let toPairSeq (assignmentPairs: string) : int seq * int seq =
     toSeq pairs[0], toSeq pairs[1]
 
 let rangeFullyContains (first: int seq) (second: int seq) : bool =
-    first |> Seq.forall (fun lol -> second |> Seq.contains lol)
-    
+    first
+    |> Seq.forall (fun lol -> second |> Seq.contains lol)
+
 let anyRangeFullyContains (first: int seq, second: int seq) : bool =
-    rangeFullyContains first second || rangeFullyContains second first
+    rangeFullyContains first second
+    || rangeFullyContains second first
 
 let rangeOverlaps (first: int seq) (second: int seq) : bool =
-    first |> Seq.forall (fun item -> second |> Seq.contains item)
+    first
+    |> Seq.forall (fun item -> second |> Seq.contains item)
+
 let anyRangeOverlaps (first: int seq, second: int seq) : bool =
-    first |> Seq.exists (fun item -> second |> Seq.contains item) 
+    first
+    |> Seq.exists (fun item -> second |> Seq.contains item)
 
 let part1Result =
     input
     |> Array.map toPairSeq
     |> Array.filter anyRangeFullyContains
     |> Array.length
-    
+
 let part2Result =
     input
     |> Array.map toPairSeq

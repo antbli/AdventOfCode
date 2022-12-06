@@ -2,13 +2,16 @@
 open System.IO
 
 let input =
-    File.ReadAllText(Path.Join(__SOURCE_DIRECTORY__, "input.txt")).Split("\n\n")
+    File
+        .ReadAllText(Path.Join(__SOURCE_DIRECTORY__, "input.txt"))
+        .Split("\n\n")
 
 let initialStacksInput =
-    input[0].Split("\n") |> Array.rev
+    input[ 0 ].Split("\n") |> Array.rev
 
 let getStackNrIndex (stackNr: int) : int =
-    initialStacksInput[0].IndexOf(stackNr.ToString())
+    initialStacksInput[0]
+        .IndexOf(stackNr.ToString())
 
 let fillStack (stackIndex: int) : char array =
     initialStacksInput
@@ -30,7 +33,7 @@ let extractProcedureActions (procedureItem: string) : int array =
     |> Array.map int
 
 let rearrangementProcedure =
-    input[1].Split("\n")
+    input[ 1 ].Split("\n")
     |> Array.map extractProcedureActions
 
 let rearrange (useCrateMover9001: bool) (stacks: char array array) (procedureItem: int array) : char array array =
