@@ -59,28 +59,42 @@ let addContent (fileTree: Map<string, Directory>) (path: string) (content: Direc
     fileTree
     |> Map.add path { directory with Content = directory.Content @ [ content ] }
 
+let createNewDirectory (path: string) : Directory =
+    { Path = path
+      Content = List.empty
+      Size = 0 }
+
+let getMoveInDirectoryPath (currentPath: string) (directoryName: string) : string =
+    if directoryName = "/" then
+        "/"
+    else
+        currentPath + directoryName + "/"
+
+let initialFileTree: Map<string, Directory> =
+    Map.empty |> Map.add "/" (createNewDirectory "/")
+
 let fileTree =
-    ((Map.empty, ""), input)
+    ((initialFileTree, "/"), input)
     ||> Seq.fold (fun (fileTree: Map<string, Directory>, currentPath: string) (currentTerminalInfo: string) ->
         match getTerminalInfo currentTerminalInfo with
         | MoveOut -> fileTree, getParentPath currentPath
         | MoveIn directoryName ->
-            let directoryPath = currentPath + directoryName + "/"
+            let directoryPath =
+                getMoveInDirectoryPath currentPath directoryName
 
             if fileTree |> Map.containsKey directoryPath then
                 fileTree, directoryPath
             else
-                let newDirectory =
-                    { Path = directoryPath
-                      Content = List.empty
-                      Size = 0 }
-
-                fileTree |> Map.add directoryPath newDirectory, directoryPath
+                fileTree
+                |> Map.add directoryPath (createNewDirectory directoryPath),
+                directoryPath
         | ShowContent -> fileTree, currentPath
         | Content content ->
             match content with
             | File size ->
-                let updatedFileTree = addContent fileTree currentPath content
+                let updatedFileTree =
+                    addContent fileTree currentPath content
+
                 (updateSize updatedFileTree currentPath size), currentPath
             | Folder _ -> (addContent fileTree currentPath content), currentPath)
     |> fst
