@@ -6,17 +6,16 @@ let input =
 
 type DirectoryContent =
     | File of size: int
-    | Directory of name: string
+    | Folder of Path: string
 
 type Directory =
-    { Name: string
+    { Path: string
       Content: DirectoryContent list
-      ParentDirectoryName: string
       Size: int }
 
 type TerminalInfo =
     | MoveOut
-    | MoveIn of directoryName: string
+    | MoveIn of directoryPath: string
     | ShowContent
     | Content of DirectoryContent
 
@@ -25,94 +24,96 @@ let getTerminalInfo (terminalInfo: string) : TerminalInfo =
     | t when t = "$ ls" -> ShowContent
     | t when t = "$ cd .." -> MoveOut
     | t when t.StartsWith("$ cd") -> MoveIn(t.Split(" ")[2])
-    | t when t.StartsWith("dir") -> Content(Directory(t.Split(" ")[1]))
+    | t when t.StartsWith("dir") -> Content(Folder(t.Split(" ")[1]))
     | t when Char.IsDigit(t[0]) -> Content(File(int (t.Split(" ")[0])))
     | _ -> failwith "lol"
+    
+let getParentPath (path: string) : string =
+    if path = "/" then
+        ""
+    else
+        path.Substring(0, path.TrimEnd('/').LastIndexOf("/") + 1)
+
+let rec updateDirectorySize (fileTree: Map<string, Directory>) (path: string) (size: int) : Map<string, Directory> =
+    let directory = fileTree[path]
+
+    fileTree
+    |> Map.add
+        directory.Path
+        { Path = directory.Path
+          Content = directory.Content
+          Size = directory.Size + size }
+
+let rec updateSize (fileTree: Map<string, Directory>) (path: string) (size: int) : Map<string, Directory> =
+    match path with
+    | "" -> fileTree
+    | _ ->
+        let updatedFileTree =
+            updateDirectorySize fileTree path size
+
+        updateSize updatedFileTree (getParentPath path) size
 
 let initFileTree =
     Map.empty
     |> Map.add
-        "root"
-        { Name = "root"
-          Content = [ Directory "/" ]
-          ParentDirectoryName = "lol nothing"
+        "/"
+        { Path = "/"
+          Content = List.empty
           Size = 0 }
 
-let rec updateParentSize
-    (fileTree: Map<string, Directory>)
-    (parentDirectoryName: string)
-    (size: int)
-    : Map<string, Directory> =
-    if parentDirectoryName = "lol nothing" then
-        fileTree
-    else
-        let parent = fileTree[parentDirectoryName]
-
-        let updatedFileTree =
-            fileTree
-            |> Map.add
-                parentDirectoryName
-                { Name = parent.Name
-                  Content = parent.Content
-                  ParentDirectoryName = parent.ParentDirectoryName
-                  Size = parent.Size + size }
-
-        updateParentSize updatedFileTree parent.ParentDirectoryName size
-
 let fileTree, _ =
-    ((initFileTree, "root"), input)
-    ||> Seq.fold
-        (fun (fileTree: Map<string, Directory>, currentDirectoryName: string) (currentTerminalInfo: string) ->
-            let terminalInfo =
-                getTerminalInfo currentTerminalInfo
+    ((initFileTree, initFileTree["/"]), input |> Array.tail)
+    ||> Seq.fold (fun (fileTree: Map<string, Directory>, currentDirectory: Directory) (currentTerminalInfo: string) ->
+        match getTerminalInfo currentTerminalInfo with
+        | MoveOut -> fileTree, fileTree[(getParentPath currentDirectory.Path)]
+        | MoveIn directoryPath ->
+            let directoryPath =
+                currentDirectory.Path + directoryPath + "/"
 
-            match terminalInfo with
-            | MoveOut ->
-                fileTree,
-                if currentDirectoryName = "root" then
-                    "root"
-                else
-                    fileTree[currentDirectoryName].ParentDirectoryName
-            | MoveIn directoryName ->
-                if fileTree |> Map.containsKey directoryName then
-                    fileTree, directoryName
-                else
-                    fileTree
-                    |> Map.add
-                        directoryName
-                        { Name = directoryName
-                          Content = List.empty
-                          ParentDirectoryName = currentDirectoryName
-                          Size = 0 },
-                    directoryName
-            | ShowContent -> fileTree, currentDirectoryName
-            | Content content ->
-                let currentDirectory =
-                    fileTree[currentDirectoryName]
+            if fileTree |> Map.containsKey directoryPath then
+                fileTree, currentDirectory
+            else
+                let newDirectory =
+                    { Path = directoryPath
+                      Content = List.empty
+                      Size = 0 }
 
-                let contentSize =
-                    match content with
-                    | File size -> size
-                    | Directory _ -> 0
+                fileTree |> Map.add directoryPath newDirectory, newDirectory
+        | ShowContent -> fileTree, currentDirectory
+        | Content content ->
+            let contentSize =
+                match content with
+                | File size -> size
+                | Folder _ -> 0
 
-                let updatedFileTree =
-                    fileTree
-                    |> Map.add
-                        currentDirectoryName
-                        { Name = currentDirectory.Name
-                          Content = currentDirectory.Content @ [ content ]
-                          ParentDirectoryName = currentDirectory.ParentDirectoryName
-                          Size = currentDirectory.Size + contentSize }
-                        
-                let updatedFileTree = updateParentSize updatedFileTree currentDirectory.ParentDirectoryName contentSize
+            let updatedFileTree =
+                fileTree
+                |> Map.add
+                    currentDirectory.Path
+                    { Path = currentDirectory.Path
+                      Content = currentDirectory.Content @ [ content ]
+                      Size = currentDirectory.Size + contentSize }
 
-                updatedFileTree, currentDirectoryName)
+            let updatedFileTree =
+                updateSize updatedFileTree (getParentPath currentDirectory.Path) contentSize
 
-let res =
+            updatedFileTree, updatedFileTree[currentDirectory.Path])
+
+let directorySizes =
     fileTree.Values
     |> Seq.map (fun directory -> directory.Size)
-    |> Seq.where (fun a -> a <= 100000)
+
+let part1Result =
+    directorySizes
+    |> Seq.where (fun directorySize -> directorySize <= 100000)
     |> Seq.sum
 
-printfn $"Part 1 result: {res}"
-// printfn $"Part 2 result: {findMarkerPos 14 14}"
+let totalSize = directorySizes |> Seq.max
+
+let part2Result =
+    directorySizes
+    |> Seq.sort
+    |> Seq.find (fun directorySize -> totalSize - directorySize < 40000000)
+
+// printfn $"Part 1 result: {part1Result}"
+printfn $"Part 2 result: {part2Result}"
