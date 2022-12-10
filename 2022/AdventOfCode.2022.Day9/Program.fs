@@ -1,7 +1,7 @@
 ﻿open System.IO
 
 let input =
-    File.ReadAllLines(Path.Join(__SOURCE_DIRECTORY__, "input1.txt"))
+    File.ReadAllLines(Path.Join(__SOURCE_DIRECTORY__, "input.txt"))
 
 type Point = int * int
 
@@ -25,31 +25,47 @@ let isAdjacent ((aX, aY): Point) ((bX, bY): Point) : bool =
     [| (min aX bX) .. (max aX bX) |].Length <= 2
     && [| (min aY bY) .. (max aY bY) |].Length <= 2
 
-let part1Result =
-    ((Set.empty |> Set.add (0, 0), (0, 0), (0, 0)), input)
+let firstHeadPath: Point array =
+    ([| (0, 0) |], input)
+    ||> Array.fold (fun headPath motionMove ->
+        let newHeadPositions =
+            getNewPositions (headPath |> Array.last) motionMove
+
+        Array.append headPath newHeadPositions)
+
+let compare (a: int) (b: int) : int =
+    match a - b with
+    | 0 -> 0
+    | res when res > 0 -> 1
+    | _ -> -1
+
+let initialTailPathState = [| 0, 0 |], (0, 0)
+
+let getTailPath (headPath: Point array) =
+    (initialTailPathState, headPath)
     ||> Array.fold
-        (fun (tailPositionVisits: Set<Point>, currentHead: Point, currentTail: Point) (motionMove: string) ->
-            let newHeadPositions =
-                getNewPositions currentHead motionMove
-
-            let newCurrentHead =
-                newHeadPositions |> Array.last
-
-            if isAdjacent newCurrentHead currentTail then
-                tailPositionVisits, newCurrentHead, currentTail
+        (fun (tailPositionVisits: Point array, (tailX: int, tailY: int as tail: Point)) (headX: int, headY: int as head: Point) ->
+            if isAdjacent head tail then
+                tailPositionVisits, tail
             else
-                let newTailPositionVisits =
-                    newHeadPositions
-                    |> Array.rev
-                    |> Array.tail
+                let newTailPosition =
+                    tailX + (compare headX tailX), tailY + (compare headY tailY)
 
-                let updatedTailPositionVisits =
-                    (tailPositionVisits, newTailPositionVisits)
-                    ||> Array.fold (fun tailPositionVisits tailPosition -> tailPositionVisits |> Set.add tailPosition)
+                Array.append tailPositionVisits [| newTailPosition |], newTailPosition)
+    |> fst
 
-                updatedTailPositionVisits, newCurrentHead, newHeadPositions |> Array.head)
-    |> (fun (tailPositionVisits, _, _) -> tailPositionVisits)
-    |> Set.count
+let part1Result =
+    firstHeadPath
+    |> getTailPath
+    |> Array.distinct
+    |> Array.length
+
+let part2Result =
+    (firstHeadPath, [| 1..9 |])
+    ||> Array.fold (fun (headPath: Point array) _ ->
+        getTailPath headPath)
+    |> Array.distinct
+    |> Array.length
 
 printfn $"Part 1 result: {part1Result}"
-// printfn $"Part 2 result: {part2Result}"
+printfn $"Part 2 result: {part2Result}"
