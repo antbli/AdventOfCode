@@ -2,7 +2,7 @@
 open System.IO
 
 let input =
-    File.ReadAllLines(Path.Join(__SOURCE_DIRECTORY__, "input1.txt"))
+    File.ReadAllLines(Path.Join(__SOURCE_DIRECTORY__, "input.txt"))
 
 type Point = int * int
 
@@ -66,114 +66,82 @@ let getNeighbours (xPosition, yPosition as position: Point) (validPositions: Poi
       downPosition ]
     |> List.filter isValidNeighbour
 
-let rec createShortestPathData (shortestPathData: Map<Point, Distance * Point option>) (unvisitedPositions: Point list) =
+let rec createShortestPathData
+    (shortestPathData: Map<Point, Distance * Point option>)
+    (unvisitedPositions: Point list)
+    : Map<Point, Distance * Point option> =
     match unvisitedPositions with
     | [] -> shortestPathData
-    | currentPosition :: remainingUnvisitedPositions ->
+    | currentPosition :: unvisitedPositions ->
+        let unvisitedPositionsWithShortestDistance =
+            unvisitedPositions
+            |> List.map (fun position -> position, fst shortestPathData[position])
+
         let neighbourPositions =
-            getNeighbours currentPosition remainingUnvisitedPositions
+            getNeighbours currentPosition unvisitedPositions
 
-        let currentShortestDistance, _ = shortestPathData[currentPosition]
-        
-        let updatedShortestPathData, updatedUnvisitedPositions =
-            ((shortestPathData, remainingUnvisitedPositions), neighbourPositions)
-            ||> List.fold (fun (shortestPathData, unvisitedPositions) neighbourPosition ->
-                let shortestDistance, previousPosition = shortestPathData[neighbourPosition]
-                
-                let calculatedDistance = currentShortestDistance + 1
-                
-                let newShortestDistance =
-                    if calculatedDistance < shortestDistance then
-                        calculatedDistance
-                    else
-                        shortestDistance
-                
-                shortestPathData, unvisitedPositions)
-            
+        let currentPositionShortestDistance, _ =
+            shortestPathData[currentPosition]
+
+        let updatedShortestPathData, updatedUnvisitedPositionsWithShortestDistance =
+            ((shortestPathData, unvisitedPositionsWithShortestDistance), neighbourPositions)
+            ||> List.fold (fun (shortestPathData, unvisitedPositionsWithShortestDistance) neighbourPosition ->
+                let shortestDistance, _ =
+                    shortestPathData[neighbourPosition]
+
+                let calculatedDistance =
+                    currentPositionShortestDistance + 1
+
+                if calculatedDistance < shortestDistance then
+                    let updatedShortestPathData =
+                        shortestPathData
+                        |> Map.add neighbourPosition (calculatedDistance, Some currentPosition)
+
+                    let indexWhereToInsertNewShortestDistance =
+                        unvisitedPositionsWithShortestDistance
+                        |> List.findIndex (fun (_, shortestDistance) -> shortestDistance > calculatedDistance)
+
+                    let updatedUnvisitedPositionsWithShortestDistance =
+                        unvisitedPositionsWithShortestDistance
+                        |> List.insertAt indexWhereToInsertNewShortestDistance (neighbourPosition, calculatedDistance)
+
+                    updatedShortestPathData, updatedUnvisitedPositionsWithShortestDistance
+                else
+                    shortestPathData, unvisitedPositionsWithShortestDistance)
+
+        let updatedUnvisitedPositions =
+            updatedUnvisitedPositionsWithShortestDistance
+            |> List.map fst
+            |> List.distinct
+
         createShortestPathData updatedShortestPathData updatedUnvisitedPositions
-        
 
-
-let getShortestPathCalculationData (startPosition: Point) : Map<Point, Distance * Point option> =
-    let unvisited =
+let getShortestPathData (startPosition: Point) : Map<Point, Point> =
+    let unvisitedPositions =
         heightMap
         |> Map.remove startPosition
-        |> Map.map (fun _ _ -> Int32.MaxValue)
-        |> Map.toArray
-        |> Array.append [| startPosition, 0 |]
+        |> Map.toList
+        |> List.map fst
+        |> List.append [ startPosition ]
 
-    Map.empty
+    let initialShortestPathData: Map<Point, Distance * Point option> =
+        heightMap
+        |> Map.map (fun _ _ -> Int32.MaxValue, None)
+        |> Map.add startPosition (0, None)
 
-// let getShortestPathCalculationData (startPosition: Point) : Map<Point, Distance * Point option> =
-//     let initialShortestPathCalculationData =
-//         Map.empty<Point, Distance * Point option>
-//         |> Map.add startPosition (0, None)
-//
-//     let unvisited =
-//         heightMap
-//         |> Map.remove startPosition
-//         |> Map.map (fun _ _ -> Int32.MaxValue)
-//         |> Map.toArray
-//         |> Array.append [| startPosition, 0 |]
-//
-//     ((initialShortestPathCalculationData, unvisited), [| 1 .. heightMap.Count |])
-//     ||> Array.fold (fun (shortestPathCalculationData, unvisited) _ ->
-//         let currentPosition, currentDistance =
-//             unvisited |> Array.head
-//
-//         printf $"{DateTime.Now}, Unvisited: {unvisited.Length}\n"
-//
-//         let updatedUnvisited =
-//             unvisited
-//             |> Array.tail
-//
-//         let neighbours =
-//             getUnvisitedNeighbours currentPosition (updatedUnvisited |> Array.map fst)
-//
-//         let updatedShortestPathCalculationData, updatedUnvisited =
-//             ((shortestPathCalculationData, updatedUnvisited), neighbours)
-//             ||> Array.fold (fun (shortestPathCalculationData, unvisited) neighbour ->
-//                 let currentNeighbourData =
-//                     shortestPathCalculationData
-//                     |> Map.tryFind neighbour
-//
-//                 let updatedData =
-//                     match currentNeighbourData with
-//                     | Some (distance, previousPosition) ->
-//                         if currentDistance + 1 < distance then
-//                             currentDistance + 1, Some currentPosition
-//                         else
-//                             distance, previousPosition
-//                     | None -> currentDistance + 1, Some currentPosition
-//
-//                 let updatedUnvisited =
-//                     unvisited
-//                     |> Array.removeAt (unvisited |> Array.findIndex (fun (position, _) -> position = neighbour))
-//
-//                 let newUnvisitedIndex =
-//                     updatedUnvisited
-//                     |> Array.findIndex (fun (_, distance) -> distance > fst updatedData)
-//
-//                 let updatedUnvisited =
-//                     updatedUnvisited
-//                     |> Array.insertAt newUnvisitedIndex (neighbour, fst updatedData)
-//
-//                 shortestPathCalculationData
-//                 |> Map.add neighbour updatedData, updatedUnvisited)
-//
-//         updatedShortestPathCalculationData, updatedUnvisited)
-//     |> fst
-//
-// let shortestPathCalculationData = getShortestPathCalculationData startPosition
-//
-// let rec calculateFewestSteps
-//     (next: Point option)
-//     : int =
-//     match next with
-//     | None -> 0
-//     | Some position ->
-//         let next = snd shortestPathCalculationData[position]
-//         (calculateFewestSteps next) + 1
+    createShortestPathData initialShortestPathData unvisitedPositions
+    |> Map.toList
+    |> List.choose (fun (position, (_, previousPosition)) ->
+        match previousPosition with
+        | Some previousPosition -> Some (position, previousPosition)
+        | None -> None)
+    |> Map.ofList
 
-// printfn $"Part 1 result: {calculateFewestSteps (Some endPosition)}"
+let rec calculateFewestSteps (startPosition: Point) (nextPosition: Point) (shortestPathData: Map<Point, Point>) : int =
+    if nextPosition = startPosition then
+        0
+    else
+        (calculateFewestSteps startPosition shortestPathData[nextPosition] shortestPathData) + 1
+
+printfn $"Part 1 result: {calculateFewestSteps startPosition endPosition (getShortestPathData startPosition)}"
 // printfn $"Part 2 result: {part2Result[0] * part2Result[1]}"
