@@ -82,39 +82,42 @@ let rec createShortestPathData
 
         let currentPositionShortestDistance, _ =
             shortestPathData[currentPosition]
+            
+        if currentPositionShortestDistance = Int32.MaxValue then
+            createShortestPathData shortestPathData unvisitedPositions
+        else
+            let updatedShortestPathData, updatedUnvisitedPositionsWithShortestDistance =
+                ((shortestPathData, unvisitedPositionsWithShortestDistance), neighbourPositions)
+                ||> List.fold (fun (shortestPathData, unvisitedPositionsWithShortestDistance) neighbourPosition ->
+                    let shortestDistance, _ =
+                        shortestPathData[neighbourPosition]
 
-        let updatedShortestPathData, updatedUnvisitedPositionsWithShortestDistance =
-            ((shortestPathData, unvisitedPositionsWithShortestDistance), neighbourPositions)
-            ||> List.fold (fun (shortestPathData, unvisitedPositionsWithShortestDistance) neighbourPosition ->
-                let shortestDistance, _ =
-                    shortestPathData[neighbourPosition]
+                    let calculatedDistance =
+                        currentPositionShortestDistance + 1
 
-                let calculatedDistance =
-                    currentPositionShortestDistance + 1
+                    if calculatedDistance < shortestDistance then
+                        let updatedShortestPathData =
+                            shortestPathData
+                            |> Map.add neighbourPosition (calculatedDistance, Some currentPosition)
 
-                if calculatedDistance < shortestDistance then
-                    let updatedShortestPathData =
-                        shortestPathData
-                        |> Map.add neighbourPosition (calculatedDistance, Some currentPosition)
+                        let indexWhereToInsertNewShortestDistance =
+                            unvisitedPositionsWithShortestDistance
+                            |> List.findIndex (fun (_, shortestDistance) -> shortestDistance > calculatedDistance)
 
-                    let indexWhereToInsertNewShortestDistance =
-                        unvisitedPositionsWithShortestDistance
-                        |> List.findIndex (fun (_, shortestDistance) -> shortestDistance > calculatedDistance)
+                        let updatedUnvisitedPositionsWithShortestDistance =
+                            unvisitedPositionsWithShortestDistance
+                            |> List.insertAt indexWhereToInsertNewShortestDistance (neighbourPosition, calculatedDistance)
 
-                    let updatedUnvisitedPositionsWithShortestDistance =
-                        unvisitedPositionsWithShortestDistance
-                        |> List.insertAt indexWhereToInsertNewShortestDistance (neighbourPosition, calculatedDistance)
+                        updatedShortestPathData, updatedUnvisitedPositionsWithShortestDistance
+                    else
+                        shortestPathData, unvisitedPositionsWithShortestDistance)
 
-                    updatedShortestPathData, updatedUnvisitedPositionsWithShortestDistance
-                else
-                    shortestPathData, unvisitedPositionsWithShortestDistance)
+            let updatedUnvisitedPositions =
+                updatedUnvisitedPositionsWithShortestDistance
+                |> List.map fst
+                |> List.distinct
 
-        let updatedUnvisitedPositions =
-            updatedUnvisitedPositionsWithShortestDistance
-            |> List.map fst
-            |> List.distinct
-
-        createShortestPathData updatedShortestPathData updatedUnvisitedPositions
+            createShortestPathData updatedShortestPathData updatedUnvisitedPositions
 
 let getShortestPathData (startPosition: Point) : Map<Point, Point> =
     let unvisitedPositions =
