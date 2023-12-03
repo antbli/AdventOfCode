@@ -50,7 +50,7 @@ let areValidIndices ((rowIndex, columnIndex): int * int) : bool =
     && columnIndex >= 0
     && columnIndex < grid[0].Length
 
-let hasAdjacentSymbol (numberString: NumberString) : bool =
+let tryFindAdjacentSymbolAndMap (isSymbolMatch: char -> bool) (numberString: NumberString) : NumberString =
     let firstColumnIndexToCheck = numberString.ColumnIndex - 1
     let lastColumnIndexToCheck = numberString.Value.Length + numberString.ColumnIndex
 
@@ -62,21 +62,44 @@ let hasAdjacentSymbol (numberString: NumberString) : bool =
     |> List.append [ numberString.RowIndex, firstColumnIndexToCheck ]
     |> List.append [ numberString.RowIndex, lastColumnIndexToCheck ]
     |> List.filter areValidIndices
-    |> List.exists (fun (rowIndex, columnIndex) ->
-        let char = grid[rowIndex][columnIndex]
-        not (Char.IsDigit(char)) && char <> '.')
+    |> List.tryFind (fun (rowIndex, columnIndex) -> isSymbolMatch (grid[rowIndex][columnIndex]))
+    |> Option.map (fun (rowIndex, columnIndex) ->
+        { numberString with
+            AdjacentSymbol =
+                { Value = grid[rowIndex][columnIndex]
+                  RowIndex = rowIndex
+                  ColumnIndex = columnIndex }
+                |> Some })
+    |> Option.defaultValue numberString
+
+let isPart1SymbolMatch (char: char) : bool = not (Char.IsDigit(char)) && char <> '.'
 
 let part1Result =
     grid
     |> Array.mapi toNumberStrings
     |> Array.map List.toArray
     |> Array.collect id
-    |> Array.filter hasAdjacentSymbol
+    |> Array.map (tryFindAdjacentSymbolAndMap isPart1SymbolMatch)
+    |> Array.filter (_.AdjacentSymbol.IsSome)
     |> Array.map (fun numberString -> int numberString.Value)
     |> Array.sum
 
 printfn $"Part 1 result: {part1Result}"
 
-let part2Result = 0
+let isPart2SymbolMatch (char: char) : bool = char = '*'
+
+let part2Result =
+    grid
+    |> Array.mapi toNumberStrings
+    |> Array.map List.toArray
+    |> Array.collect id
+    |> Array.map (tryFindAdjacentSymbolAndMap isPart2SymbolMatch)
+    |> Array.filter (_.AdjacentSymbol.IsSome)
+    |> Array.groupBy (fun numberString ->
+        numberString.AdjacentSymbol.Value.RowIndex, numberString.AdjacentSymbol.Value.ColumnIndex)
+    |> Array.map snd
+    |> Array.filter (fun numberStrings -> numberStrings.Length = 2)
+    |> Array.map (fun numberStrings -> (int numberStrings[0].Value) * int numberStrings[1].Value)
+    |> Array.sum
 
 printfn $"Part 2 result: {part2Result}"
