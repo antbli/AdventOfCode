@@ -5,50 +5,52 @@ let input = File.ReadAllLines(Path.Join(__SOURCE_DIRECTORY__, "input.txt"))
 
 let grid = input |> Array.map Seq.toArray
 
+let toNumberStringsWithRowAndColumnIndex (rowIndex: int) (row: char array) : (string * int * int) list =
+    row
+    |> Array.indexed
+    |> Array.filter (fun (_, char) -> Char.IsDigit(char))
+    |> Array.fold
+        (fun numberStringsWithRowAndColumnIndex (columnIndex, digitChar) ->
+            match numberStringsWithRowAndColumnIndex |> List.rev with
+            | [] -> List.singleton (string digitChar, rowIndex, columnIndex)
+            | (previousNumberString, rowIndex, previousNumberStringColumnIndex) :: tail ->
+                let shouldAppendDigit =
+                    previousNumberString.Length + previousNumberStringColumnIndex = columnIndex
+
+                if shouldAppendDigit then
+                    List.append
+                        tail
+                        [ previousNumberString + string digitChar, rowIndex, previousNumberStringColumnIndex ]
+                else
+                    List.append numberStringsWithRowAndColumnIndex [ string digitChar, rowIndex, columnIndex ])
+        List.empty<string * int * int>
+
+let filterValidIndices ((rowIndex, columnIndex): int * int) : bool =
+    rowIndex >= 0
+    && rowIndex < grid.Length
+    && columnIndex >= 0
+    && columnIndex < grid[0].Length
+
+let filterNumbersByAdjacentSymbol ((numberString, rowIndex, columnIndex): string * int * int) : bool =
+    let firstColumnIndexToCheck = columnIndex - 1
+    let lastColumnIndexToCheck = numberString.Length + columnIndex
+
+    [ firstColumnIndexToCheck..lastColumnIndexToCheck ]
+    |> List.map (fun columnIndex -> [ rowIndex - 1, columnIndex ] |> List.append [ rowIndex + 1, columnIndex ])
+    |> List.collect id
+    |> List.append [ rowIndex, firstColumnIndexToCheck ]
+    |> List.append [ rowIndex, lastColumnIndexToCheck ]
+    |> List.filter filterValidIndices
+    |> List.exists (fun (rowIndex, columnIndex) ->
+        let char = grid[rowIndex][columnIndex]
+        not (Char.IsDigit(char)) && char <> '.')
+
 let part1Result =
     grid
-    |> Array.mapi (fun rowIndex row ->
-        row
-        |> Array.mapi (fun columnIndex char ->
-            if Char.IsDigit(char) then
-                Some(string char, columnIndex)
-            else
-                None)
-        |> Array.choose id
-        |> Array.fold
-            (fun numberStringsWithRowAndColumnIndex (digitString, columnIndex) ->
-                match numberStringsWithRowAndColumnIndex |> List.rev with
-                | [] -> List.singleton (digitString, rowIndex, columnIndex)
-                | (previousNumberString, rowIndex, previousNumberStringColumnIndex) :: tail ->
-                    if (previousNumberString |> String.length) + previousNumberStringColumnIndex = columnIndex then
-                        (previousNumberString + digitString, rowIndex, previousNumberStringColumnIndex)
-                        :: tail
-                        |> List.rev
-                    else
-                        List.append numberStringsWithRowAndColumnIndex [ digitString, rowIndex, columnIndex ])
-            List.empty<string * int * int>)
+    |> Array.mapi toNumberStringsWithRowAndColumnIndex
     |> Array.map List.toArray
     |> Array.collect id
-    |> Array.filter (fun (numberString, rowIndex, columnIndex) ->
-        let firstColumnIndexToCheck = columnIndex - 1
-        let lastColumnIndexToCheck = (numberString |> String.length) + columnIndex
-
-        [ firstColumnIndexToCheck..lastColumnIndexToCheck ]
-        |> List.map (fun columnIndex -> [ rowIndex - 1, columnIndex ] |> List.append [ rowIndex + 1, columnIndex ])
-        |> List.collect id
-        |> List.append [ rowIndex, firstColumnIndexToCheck ]
-        |> List.append [ rowIndex, lastColumnIndexToCheck ]
-        |> List.filter (fun (rowIndex, columnIndex) ->
-            rowIndex >= 0
-            && rowIndex < grid.Length
-            && columnIndex >= 0
-            && columnIndex < grid[0].Length)
-        |> List.exists (fun (rowIndex, columnIndex) ->
-            let char = grid[rowIndex][columnIndex]
-
-            not (Char.IsDigit(char)) && char <> '.'
-
-            ))
+    |> Array.filter filterNumbersByAdjacentSymbol
     |> Array.map (fun (numberString, _, _) -> int numberString)
     |> Array.sum
 
